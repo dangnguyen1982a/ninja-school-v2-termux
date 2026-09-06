@@ -1,60 +1,104 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -e
 
-REPO="https://github.com/dangnguyen1982a/ninja-school-v2-termux"
-INSTALL_DIR="$HOME/nso-v2"
-SRC="$INSTALL_DIR/NsoC"
+BASE="$HOME/ninja-school-v2-final"
+NsoC="$BASE/NsoC"
+WEB="$BASE/web"
+SQL="$BASE/database/nso.sql"
+SOCKET="$PREFIX/var/run/mysqld/mysqld.sock"
 
-echo "=== NINJA SCHOOL V2 ==="
+echo "=========================================="
+echo "        NINJA SCHOOL V2 - INSTALL"
+echo "=========================================="
 
-pkg update -y
-pkg install -y git ant openjdk-21 mariadb
-
-echo "[1] Tải source..."
-rm -rf "$INSTALL_DIR"
-git clone --depth 1 "$REPO" "$INSTALL_DIR"
-
-echo "[2] Kiểm tra source..."
-if [ ! -d "$SRC" ]; then
-    echo "LỖI: Không tìm thấy NsoC"
+if [ ! -d "$BASE" ]; then
+    echo "LỖI: Không tìm thấy $BASE"
     exit 1
 fi
 
-echo "[3] Build server..."
-cd "$SRC"
+echo "[1] Cài dependency..."
+pkg update -y
+pkg install -y git ant openjdk-21 mariadb php
+
+echo "[2] Kiểm tra NsoC..."
+
+if [ ! -f "$NsoC/build.xml" ]; then
+    echo "LỖI: Không tìm thấy NsoC/build.xml"
+    exit 1
+fi
+
+echo "[3] Build NsoC..."
+cd "$NsoC"
 ant clean jar
 
-if [ ! -f "dist/Monter.jar" ]; then
-    echo "LỖI: Không tạo được dist/Monter.jar"
+if [ ! -f "$NsoC/dist/Monter.jar" ]; then
+    echo "LỖI: Không tạo được Monter.jar"
     exit 1
 fi
 
-echo "[4] Tạo lệnh chạy..."
-cat > "$HOME/start-ninja.sh" <<'RUN'
+echo "[4] Kiểm tra Panel..."
+
+if [ ! -f "$WEB/index.php" ]; then
+    echo "LỖI: Không tìm thấy web/index.php"
+    exit 1
+fi
+
+echo "[5] Tạo start-ninja.sh..."
+
+cat > "$BASE/start-ninja.sh" <<'RUN'
 #!/data/data/com.termux/files/usr/bin/bash
 set -e
 
-cd "$HOME/nso-v2/NsoC"
+BASE="$HOME/ninja-school-v2-final"
+NsoC="$BASE/NsoC"
+WEB="$BASE/web"
 
-if [ ! -f "dist/Monter.jar" ]; then
-    echo "Chưa có JAR, đang build..."
-    ant jar
+echo "=========================================="
+echo "          NINJA SCHOOL V2"
+echo "=========================================="
+
+echo "[1] Kiểm tra MariaDB..."
+
+if ! mariadb -h 127.0.0.1 -P 3306 -u root -e "SELECT 1;" >/dev/null 2>&1; then
+    echo "MariaDB chưa chạy."
+    echo "Hãy chạy: mariadbd-safe &"
+    exit 1
 fi
 
-echo "=== NINJA SCHOOL V2 ==="
-echo "Starting server..."
-echo
+echo "[2] Kiểm tra database..."
+
+mariadb -h 127.0.0.1 -P 3306 -u root \
+    -e "USE acc; USE aov; SELECT 1;" >/dev/null
+
+echo "Database OK."
+
+echo "[3] Khởi động Panel..."
+
+php -d opcache.enable=0 \
+    -d opcache.enable_cli=0 \
+    -S 127.0.0.1:8080 \
+    -t "$WEB" \
+    > "$BASE/panel.log" 2>&1 &
+
+echo "Panel: http://127.0.0.1:8080"
+
+echo "[4] Khởi động NsoC..."
+
+cd "$NsoC"
 
 exec java -cp "dist/Monter.jar:lib/*" server.NinjaSchool
-RUN
+RUNN
 
-chmod +x "$HOME/start-ninja.sh"
+chmod +x "$BASE/start-ninja.sh"
 
 echo
-echo "================================"
-echo " CÀI ĐẶT THÀNH CÔNG"
-echo "================================"
+echo "=========================================="
+echo "       CÀI ĐẶT HOÀN TẤT"
+echo "=========================================="
 echo
-echo "Chạy server:"
-echo "  bash ~/start-ninja.sh"
+echo "Server + Panel:"
+echo "  bash ~/ninja-school-v2-final/start-ninja.sh"
+echo
+echo "Panel:"
+echo "  http://127.0.0.1:8080"
 echo

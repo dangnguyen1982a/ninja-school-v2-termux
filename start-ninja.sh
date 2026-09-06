@@ -1,55 +1,41 @@
 #!/data/data/com.termux/files/usr/bin/bash
+set -e
 
-BASE="$HOME/ninja"
+BASE="$HOME/ninja-school-v2-final"
+NsoC="$BASE/NsoC"
 WEB="$BASE/web"
-LOG="$BASE/server.log"
 
-echo "======================================"
-echo "      NINJA SCHOOL V2 - TERMUX"
-echo "======================================"
+echo "=========================================="
+echo "          NINJA SCHOOL V2"
+echo "=========================================="
 
-# Kiểm tra Java
-if ! command -v java >/dev/null 2>&1; then
-    echo "[!] Chưa có Java"
-    echo "    pkg install openjdk-21"
+echo "[1] Kiểm tra MariaDB..."
+
+if ! mariadb -h 127.0.0.1 -P 3306 -u root -e "SELECT 1;" >/dev/null 2>&1; then
+    echo "MariaDB chưa chạy."
+    echo "Hãy chạy: mariadbd-safe &"
     exit 1
 fi
 
-# Kiểm tra MySQL
-if ! command -v mariadb >/dev/null 2>&1; then
-    echo "[!] Chưa có MariaDB"
-    echo "    pkg install mariadb"
-    exit 1
-fi
+echo "[2] Kiểm tra database..."
 
-# Tạo thư mục tạm PHP
-mkdir -p "$PREFIX/tmp"
-chmod 700 "$PREFIX/tmp"
+mariadb -h 127.0.0.1 -P 3306 -u root \
+    -e "USE acc; USE aov; SELECT 1;" >/dev/null
 
-# Dừng server cũ nếu có
-pkill -f 'server.NinjaSchool' 2>/dev/null || true
+echo "Database OK."
 
-echo "[+] Starting Ninja School Server..."
+echo "[3] Khởi động Panel..."
 
-cd "$BASE/NsoC"
-
-nohup java -cp "dist/Monter.jar:lib/*" server.NinjaSchool \
-    > "$LOG" 2>&1 &
-
-SERVER_PID=$!
-
-echo "[+] Server PID: $SERVER_PID"
-echo "[+] Log: $LOG"
-
-sleep 2
-
-echo ""
-echo "[+] Starting Admin Panel..."
-echo "[+] http://127.0.0.1:8080"
-echo ""
-
-cd "$WEB"
-
-exec php -c "$WEB/php-termux.ini" \
+php -d opcache.enable=0 \
+    -d opcache.enable_cli=0 \
     -S 127.0.0.1:8080 \
-    -t "$WEB"
+    -t "$WEB" \
+    > "$BASE/panel.log" 2>&1 &
+
+echo "Panel: http://127.0.0.1:8080"
+
+echo "[4] Khởi động NsoC..."
+
+cd "$NsoC"
+
+exec java -cp "dist/Monter.jar:lib/*" server.NinjaSchool
