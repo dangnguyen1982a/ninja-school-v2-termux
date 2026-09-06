@@ -580,6 +580,7 @@ public class Manager {
                 }
 
                 ItemTemplate.entrys.add(item);
+                if (item.id == 869 || item.id == 877 || item.id == 883) System.out.println("DEBUG ITEM " + item.id + " LOADED - part=" + item.part);
                 if (item.id == 883) System.out.println("DEBUG ITEM 883 LOADED - part=" + item.part);
             }
             res.close();

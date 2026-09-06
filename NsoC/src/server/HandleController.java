@@ -3423,7 +3423,7 @@ public class HandleController {
                                             }
                                         }
                                         if (itembody[11] != null) {
-                                            head = ItemTemplate.ItemTemplateId(itembody[11].id).part;
+                                            if (ItemTemplate.ItemTemplateId(itembody[11].id) != null) head = ItemTemplate.ItemTemplateId(itembody[11].id).part;
 //                                            if (itembody[11].id == 745) { // mặt nạ chuột
 //                                                head = 264;
 //                                            }
@@ -3447,13 +3447,16 @@ public class HandleController {
 //                                            }
                                         }
                                         if (itembody[1] != null) {
-                                            weapon = ItemTemplate.ItemTemplateId(itembody[1].id).part;
+                                            ItemTemplate t = ItemTemplate.ItemTemplateId(itembody[1].id);
+                                            if (t != null) weapon = t.part;
                                         }
                                         if (itembody[2] != null) {
-                                            body = ItemTemplate.ItemTemplateId(itembody[2].id).part;
+                                            ItemTemplate t = ItemTemplate.ItemTemplateId(itembody[2].id);
+                                            if (t != null) body = t.part;
                                         }
                                         if (itembody[6] != null) {
-                                            leg = ItemTemplate.ItemTemplateId(itembody[6].id).part;
+                                            ItemTemplate t = ItemTemplate.ItemTemplateId(itembody[6].id);
+                                            if (t != null) leg = t.part;
                                         }
 //                                        if (head == 258 || head == 264 || head == 267 || head == 201 || head == 194 || head == 205 || head == 185 || head == 188) {
 //                                            body = (short) (head + 1);
@@ -3496,23 +3499,97 @@ public class HandleController {
 
     public static void createNinja(Player player, Message m) {
         try {
-            if (player != null && player.conn != null && m != null & m.reader().available() > 0) {
+            if (player != null && player.conn != null && m != null && m.reader().available() > 0) {
                 if (player.sortNinja[2] == null) {
                     String name = m.reader().readUTF().toLowerCase();
                     byte gender = m.reader().readByte();
                     byte head = m.reader().readByte();
+
                     if (Util.CheckString(name, "^[a-zA-Z0-9]+$") && name.length() >= 6 && name.length() <= 15) {
                         if (player.sortNinja[0] != null) {
                             player.conn.sendMessageLog("Để tránh tạo nhiều clone gây lag server, không tạo thêm nhân vật!");
                         } else {
                             synchronized (Server.LOCK_MYSQL) {
-                                ResultSet red = SQLManager.stat.executeQuery("SELECT `id` FROM `ninja` WHERE `name`LIKE'" + name + "';");
+                                ResultSet red = SQLManager.stat.executeQuery(
+                                    "SELECT `id` FROM `ninja` WHERE `name`LIKE'" + name + "';"
+                                );
+
                                 if (red != null && red.first()) {
                                     player.conn.sendMessageLog("Tên nhân vật đã tồn tại!");
                                     return;
                                 }
-                                red.close();
-                                SQLManager.stat.executeUpdate("INSERT INTO ninja(`name`,`gender`,`head`,`ItemBag`,`ItemBox`,`ItemBST`,`ItemCaiTrang`,`ItemBody`,`ItemMounts`, `friend`, `effect`, `clan`, `exptype`, `skill`) VALUES (\"" + name + "\"," + gender + "," + head + ",'[]','[]','[]','[]','[]','[]'     , '[]', '[]','[]', 1, '[{\"id\": 0, \"point\": 0}]'       );");
+
+                                if (red != null) {
+                                    red.close();
+                                }
+
+                                /*
+                                 * Tạo nhân vật mới với full bộ Thiên Vương.
+                                 * Class 3 dùng Thiên Vương Dao (883).
+                                 *
+                                 * Slot:
+                                 * 0  Đầu
+                                 * 1  Vũ khí
+                                 * 3  Giáp
+                                 * 4  Liên
+                                 * 5  Thủ
+                                 * 6  Giới
+                                 * 7  Hạ giáp
+                                 * 8  Bội
+                                 * 9  Ngoa
+                                 * 11 Phù
+                                 */
+
+                                org.json.simple.JSONArray body = new org.json.simple.JSONArray();
+
+                                int[] gear = new int[32];
+
+                                // Full Thiên Vương nam - class 3
+                                gear[0]  = 895;
+                                gear[1]  = 883;
+                                gear[3]  = 897;
+                                gear[4]  = 908;
+                                gear[5]  = 901;
+                                gear[6]  = 907;
+                                gear[7]  = 899;
+                                gear[8]  = 906;
+                                gear[9]  = 903;
+                                gear[11] = 905;
+
+                                for (int slot = 0; slot < 32; slot++) {
+                                    assembly.Item item;
+
+                                    if (gear[slot] > 0) {
+                                        item = template.ItemTemplate.itemDefault(gear[slot], (byte) 1);
+                                        item.isLock = true;
+                                        item.upgrade = 16;
+                                        item.quantity = 1;
+                                    } else {
+                                        item = new assembly.Item();
+                                    }
+
+                                    body.add(template.ItemTemplate.ObjectItem(item, slot));
+                                }
+
+                                String itemBody = body.toJSONString().replace("'", "''");
+
+                                String sql =
+                                    "INSERT INTO ninja(" +
+                                    "`name`,`gender`,`head`," +
+                                    "`ItemBag`,`ItemBox`,`ItemBST`,`ItemCaiTrang`,`ItemBody`,`ItemMounts`," +
+                                    "`friend`,`effect`,`clan`,`exptype`,`skill`" +
+                                    ") VALUES (" +
+                                    "\"" + name + "\"," +
+                                    gender + "," +
+                                    head + "," +
+                                    "'[]','[]','[]','[]'," +
+                                    "'" + itemBody + "'," +
+                                    "'[]','[]','[]','[]',1," +
+                                    "'[{\"id\": 0, \"point\": 0}]'" +
+                                    ");";
+
+                                SQLManager.stat.executeUpdate(sql);
+
                                 byte i = 0;
                                 while (true) {
                                     if (i < player.sortNinja.length) {
@@ -3525,11 +3602,14 @@ public class HandleController {
                                     break;
                                 }
                             }
+
                             player.flush();
                             HandleController.selectNinja(player, null);
                         }
                     } else {
-                        player.conn.sendMessageLog("Tên nhân vật chỉ chứa các ký tự từ a-z,0-9 và chiều dài từ 6 đến 15 ký tự!");
+                        player.conn.sendMessageLog(
+                            "Tên nhân vật chỉ chứa các ký tự từ a-z,0-9 và chiều dài từ 6 đến 15 ký tự!"
+                        );
                     }
                 }
             }

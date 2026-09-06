@@ -149,7 +149,8 @@ public class Body {
             return (short) (this.partHead() + 1);
         }
         if (this.ItemBody[2] != null) {
-            return ItemTemplate.ItemTemplateId(this.ItemBody[2].id).part;
+            ItemTemplate t = ItemTemplate.ItemTemplateId(this.ItemBody[2].id);
+            if (t != null) return t.part;
         }
         return -1;
     }

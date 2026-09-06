@@ -1,6 +1,6 @@
 #!/data/data/com.termux/files/usr/bin/bash
 
-PANEL="$HOME/web"
+PANEL="$HOME/ninja-school-v2-final/web"
 
 clear
 echo "=========================================="

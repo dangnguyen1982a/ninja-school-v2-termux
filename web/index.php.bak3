@@ -312,43 +312,6 @@ if (
 
         else {
 
-            /*
-             * Tạo tài khoản player:
-             * Chỉ dùng các cột thực tế có trong bảng player.
-             */
-            if ($table === 'player') {
-
-                $fields['lock'] = 0;
-                $fields['ban'] = 0;
-                $fields['luong'] = 0;
-                $fields['ninja'] = '[]';
-                $fields['coin'] = 0;
-                $fields['status'] = 0;
-                $fields['role'] = 0;
-                $fields['online'] = 0;
-                $fields['vip'] = -1;
-                $fields['XacThuc'] = 1;
-                $fields['created_at'] = date('Y-m-d H:i:s');
-
-                unset(
-                    $fields['tongnap'],
-                    $fields['admin_web']
-                );
-
-                if (isset($fields['username'])) {
-                    $fields['username'] = trim($fields['username']);
-
-                    $check = $pdo->prepare(
-                        "SELECT id FROM player WHERE username=? LIMIT 1"
-                    );
-                    $check->execute([$fields['username']]);
-
-                    if ($check->fetch()) {
-                        die('Tên tài khoản đã tồn tại!');
-                    }
-                }
-            }
-
             if ($fields) {
 
                 $names = array_keys($fields);

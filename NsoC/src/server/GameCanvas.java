@@ -96,7 +96,7 @@ public class GameCanvas {
         try {
             if (session != null) {
                 //System.out.println("Lấy data " + id);
-                byte[] ab = GameSrc.loadFile("res/Effect/x" + session.zoomLevel + "/DataEffect/" + id).toByteArray();
+                java.io.ByteArrayOutputStream data = GameSrc.loadFile("res/Effect/x" + session.zoomLevel + "/DataEffect/" + id); if (data == null) { System.out.println("THIEU EFFECT: " + id); return; } byte[] ab = data.toByteArray();
                 if (ab != null) {
                     if (id == 21) {
                         ab[6] = 127;
