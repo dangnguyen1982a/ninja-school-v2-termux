@@ -4,8 +4,6 @@ set -e
 BASE="$HOME/ninja-school-v2-final"
 NsoC="$BASE/NsoC"
 WEB="$BASE/web"
-SQL="$BASE/database/nso.sql"
-SOCKET="$PREFIX/var/run/mysqld/mysqld.sock"
 
 echo "=========================================="
 echo "        NINJA SCHOOL V2 - INSTALL"
@@ -118,4 +116,3 @@ echo "  bash ~/ninja-school-v2-final/start-ninja.sh"
 echo
 echo "Panel:"
 echo "  http://127.0.0.1:8080"
-echo
