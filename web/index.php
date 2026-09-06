@@ -1,926 +1,336 @@
 <?php
-/* =========================================================
-   NSO VIP PANEL
-   MariaDB + PHP | Termux
-   Database: nso
-   ========================================================= */
+session_start();
 
-mysqli_report(MYSQLI_REPORT_OFF);
+/* ================= CONFIG ================= */
+$DB_HOST = '127.0.0.1';
+$DB_USER = 'root';
+$DB_PASS = '';
 
-$socket = getenv('PREFIX') . '/var/run/mysqld/mysqld.sock';
-if (!is_dir(dirname($socket))) {
-    $socket = '/data/data/com.termux/files/usr/var/run/mysqld/mysqld.sock';
+$DBS = ['acc', 'aov'];
+$ADMIN_USER = 'admin';
+$ADMIN_PASS = 'admin123';
+
+/* ================= LOGIN ================= */
+if (isset($_GET['logout'])) {
+    session_destroy();
+    header('Location: ./');
+    exit;
 }
 
-$db = @new mysqli('localhost', 'root', '', 'nso', 3306, $socket);
-
-if ($db->connect_error) {
-    die("
-    <div style='font-family:Arial;background:#090b12;color:#fff;padding:30px'>
-        <h2 style='color:#ff4d6d'>❌ Không thể kết nối MariaDB</h2>
-        <p>{$db->connect_error}</p>
-    </div>");
-}
-
-$db->set_charset('utf8mb4');
-
-function e($v) {
-    return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
-}
-
-$tables = [];
-$r = $db->query("SHOW TABLES");
-while ($r && $row = $r->fetch_row()) {
-    $tables[] = $row[0];
-}
-
-$table = $_GET['table'] ?? ($tables[0] ?? '');
-$search = trim($_GET['search'] ?? '');
-
-if (!in_array($table, $tables, true)) {
-    $table = $tables[0] ?? '';
-}
-
-$columns = [];
-$primary = '';
-
-if ($table !== '') {
-    $safeTable = str_replace('`', '``', $table);
-    $r = $db->query("SHOW COLUMNS FROM `$safeTable`");
-
-    while ($r && $row = $r->fetch_assoc()) {
-        $columns[] = $row;
-        if (($row['Key'] ?? '') === 'PRI') {
-            $primary = $row['Field'];
+if (!isset($_SESSION['admin'])) {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (($_POST['username'] ?? '') === $ADMIN_USER && ($_POST['password'] ?? '') === $ADMIN_PASS) {
+            $_SESSION['admin'] = true;
+            header('Location: ./');
+            exit;
         }
+        $error = 'Tài khoản hoặc mật khẩu không chính xác!';
     }
+    ?>
+    <!doctype html>
+    <html lang="vi">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Đăng nhập Admin</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body class="bg-[#0a0814] flex items-center justify-center min-h-screen p-4">
+        <form method="post" class="w-full max-w-sm bg-[#140f26] border border-purple-500/30 p-6 rounded-2xl">
+            <h1 class="text-white text-xl font-bold mb-4 text-center">NINJA SCHOOL V2</h1>
+            <?php if(isset($error)): ?><p class="text-red-400 text-xs mb-4 text-center"><?=htmlspecialchars($error)?></p><?php endif; ?>
+            <input type="text" name="username" placeholder="Tài khoản" class="w-full mb-3 bg-[#0a0814] text-white text-sm p-3 border border-purple-500/30 rounded-xl" required>
+            <input type="password" name="password" placeholder="Mật khẩu" class="w-full mb-4 bg-[#0a0814] text-white text-sm p-3 border border-purple-500/30 rounded-xl" required>
+            <button type="submit" class="w-full bg-purple-600 text-white font-bold py-3 rounded-xl">ĐĂNG NHẬP</button>
+        </form>
+    </body>
+    </html>
+    <?php
+    exit;
 }
 
-/* =========================
-   ADD
-   ========================= */
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add') {
-    $tablePost = $_POST['table'] ?? '';
+/* ================= DATABASE ================= */
+$dbname = $_GET['db'] ?? 'acc';
+if (!in_array($dbname, $DBS, true)) $dbname = 'acc';
 
-    if (in_array($tablePost, $tables, true)) {
-        $safe = str_replace('`', '``', $tablePost);
+try {
+    $pdo = new PDO("mysql:host=$DB_HOST;dbname=$dbname;charset=utf8mb4", $DB_USER, $DB_PASS, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+    ]);
+} catch(Exception $e) {
+    die("<div style='color:red;padding:20px'>Lỗi kết nối CSDL: ".htmlspecialchars($e->getMessage())."</div>");
+}
+
+function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+$tables = $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
+
+/* ================= ACTIONS ================= */
+if (isset($_GET['delete'], $_GET['table'], $_GET['id'])) {
+    $table = $_GET['table'];
+    if (in_array($table, ['player', 'ninja', 'item', 'itemsell', 'gift_code', 'clan'], true) && ctype_digit($_GET['id'])) {
+        $pdo->prepare("DELETE FROM `$table` WHERE id=?")->execute([$_GET['id']]);
+    }
+    header("Location: ?db=".urlencode($dbname)."&table=".urlencode($table));
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_table'])) {
+    $table = $_POST['save_table'];
+    $id = $_POST['id'] ?? '';
+    if (in_array($table, ['player', 'ninja', 'item', 'itemsell', 'gift_code', 'clan'], true)) {
+        $cols = $pdo->query("DESCRIBE `$table`")->fetchAll();
         $fields = [];
-        $values = [];
-        $types = '';
-        $params = [];
-
-        foreach ($columns as $c) {
-            $field = $c['Field'];
-
-            if (!array_key_exists($field, $_POST)) {
-                continue;
-            }
-
-            if ($c['Extra'] === 'auto_increment' && $_POST[$field] === '') {
-                continue;
-            }
-
-            $fields[] = "`" . str_replace('`', '``', $field) . "`";
-            $values[] = '?';
-            $types .= 's';
-            $params[] = $_POST[$field];
-        }
-
-        if ($fields) {
-            $sql = "INSERT INTO `$safe` (" . implode(',', $fields) .
-                   ") VALUES (" . implode(',', $values) . ")";
-
-            $stmt = $db->prepare($sql);
-
-            if ($stmt) {
-                $stmt->bind_param($types, ...$params);
-                $stmt->execute();
-                $stmt->close();
+        foreach ($cols as $col) {
+            $name = $col['Field'];
+            if ($name !== 'id' && array_key_exists($name, $_POST)) {
+                $fields[$name] = $_POST[$name] !== '' ? $_POST[$name] : null;
             }
         }
-
-        header("Location: ?table=" . urlencode($tablePost) . "&ok=added");
+        if ($id !== '') {
+            $sets = []; $vals = [];
+            foreach ($fields as $k => $v) { $sets[] = "`$k`=?"; $vals[] = $v; }
+            if ($sets) { $vals[] = $id; $pdo->prepare("UPDATE `$table` SET ".implode(',', $sets)." WHERE id=?")->execute($vals); }
+        } else {
+            if ($fields) {
+                $names = array_keys($fields);
+                $marks = array_fill(0, count($names), '?');
+                $pdo->prepare("INSERT INTO `$table` (`".implode('`,`', $names)."`) VALUES (".implode(',', $marks).")")->execute(array_values($fields));
+            }
+        }
+        header("Location: ?db=".urlencode($dbname)."&table=".urlencode($table));
         exit;
     }
 }
 
-/* =========================
-   DELETE
-   ========================= */
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
-    if ($primary !== '' && isset($_POST['id'])) {
-        $safeTable = str_replace('`', '``', $table);
-        $safePrimary = str_replace('`', '``', $primary);
+/* ================= DATA ================= */
+$table = $_GET['table'] ?? '';
+$search = trim($_GET['search'] ?? '');
+$page = max(1, (int)($_GET['page'] ?? 1));
+$limit = 20; $offset = ($page - 1) * $limit;
+$rows = []; $total = 0; $columns = [];
 
-        $stmt = $db->prepare(
-            "DELETE FROM `$safeTable` WHERE `$safePrimary` = ? LIMIT 1"
-        );
-
-        if ($stmt) {
-            $id = $_POST['id'];
-            $stmt->bind_param('s', $id);
-            $stmt->execute();
-            $stmt->close();
-        }
-    }
-
-    header("Location: ?table=" . urlencode($table) . "&ok=deleted");
-    exit;
-}
-
-/* =========================
-   UPDATE
-   ========================= */
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update') {
-    if ($primary !== '' && isset($_POST['_primary_value'])) {
-
-        $safeTable = str_replace('`', '``', $table);
-        $safePrimary = str_replace('`', '``', $primary);
-
-        $set = [];
-        $types = '';
-        $params = [];
-
+if ($table && in_array($table, $tables, true)) {
+    $columns = $pdo->query("DESCRIBE `$table`")->fetchAll();
+    $where = ''; $params = [];
+    if ($search !== '') {
+        $sc = [];
         foreach ($columns as $c) {
-            $field = $c['Field'];
-
-            if ($field === $primary || !array_key_exists($field, $_POST)) {
-                continue;
-            }
-
-            $set[] = "`" . str_replace('`', '``', $field) . "` = ?";
-            $types .= 's';
-            $params[] = $_POST[$field];
-        }
-
-        if ($set) {
-            $types .= 's';
-            $params[] = $_POST['_primary_value'];
-
-            $sql = "UPDATE `$safeTable` SET " .
-                   implode(',', $set) .
-                   " WHERE `$safePrimary` = ? LIMIT 1";
-
-            $stmt = $db->prepare($sql);
-
-            if ($stmt) {
-                $stmt->bind_param($types, ...$params);
-                $stmt->execute();
-                $stmt->close();
+            if (strpos(strtolower($c['Type']), 'char') !== false || strpos(strtolower($c['Type']), 'text') !== false) {
+                $sc[] = "`".$c['Field']."` LIKE ?"; $params[] = "%$search%";
             }
         }
+        if ($sc) $where = "WHERE ".implode(" OR ", $sc);
     }
-
-    header("Location: ?table=" . urlencode($table) . "&ok=updated");
-    exit;
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM `$table` $where"); $stmt->execute($params);
+    $total = (int)$stmt->fetchColumn();
+    $stmt = $pdo->prepare("SELECT * FROM `$table` $where ORDER BY id DESC LIMIT $limit OFFSET $offset"); $stmt->execute($params);
+    $rows = $stmt->fetchAll();
 }
 
-/* =========================
-   DATA
-   ========================= */
-$rows = [];
-$totalRows = 0;
-
-if ($table !== '') {
-    $safeTable = str_replace('`', '``', $table);
-
-    $count = $db->query("SELECT COUNT(*) AS c FROM `$safeTable`");
-    if ($count) {
-        $totalRows = (int)$count->fetch_assoc()['c'];
+$edit = null;
+$isAdd = false;
+if ($table && isset($_GET['add']) && in_array($table, $tables, true)) {
+    $isAdd = true;
+    $edit = [];
+    $columns = $pdo->query("DESCRIBE `$table`")->fetchAll();
+    foreach($columns as $c) {
+        $edit[$c['Field']] = '';
     }
-
-    $sql = "SELECT * FROM `$safeTable`";
-
-    if ($search !== '' && $columns) {
-        $parts = [];
-
-        foreach ($columns as $c) {
-            $f = str_replace('`', '``', $c['Field']);
-            $parts[] = "CAST(`$f` AS CHAR) LIKE '%" .
-                       $db->real_escape_string($search) . "%'";
-        }
-
-        $sql .= " WHERE " . implode(' OR ', $parts);
-    }
-
-    $sql .= " LIMIT 200";
-
-    $r = $db->query($sql);
-
-    while ($r && $row = $r->fetch_assoc()) {
-        $rows[] = $row;
-    }
+} elseif ($table && isset($_GET['edit']) && ctype_digit($_GET['edit']) && in_array($table, $tables, true)) {
+    $columns = $pdo->query("DESCRIBE `$table`")->fetchAll();
+    $stmt = $pdo->prepare("SELECT * FROM `$table` WHERE id=?"); $stmt->execute([$_GET['edit']]);
+    $edit = $stmt->fetch();
 }
-
-$totalDatabaseRows = 0;
-
-foreach ($tables as $t) {
-    $safe = str_replace('`', '``', $t);
-    $r = $db->query("SELECT COUNT(*) c FROM `$safe`");
-
-    if ($r) {
-        $totalDatabaseRows += (int)$r->fetch_assoc()['c'];
-    }
-}
-
-$ok = $_GET['ok'] ?? '';
 ?>
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport"
-      content="width=device-width,initial-scale=1,maximum-scale=1">
-
-<title>NSO VIP PANEL</title>
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet">
-
-<style>
-* {
-    box-sizing:border-box;
-}
-
-body {
-    margin:0;
-    font-family:'Be Vietnam Pro',Arial,sans-serif;
-    background:
-        radial-gradient(circle at top left,#25104b 0,#0a0b12 35%),
-        #08090f;
-    color:#f5f7ff;
-}
-
-body:before {
-    content:"";
-    position:fixed;
-    inset:0;
-    pointer-events:none;
-    background:
-        radial-gradient(circle at 80% 10%,rgba(0,200,255,.12),transparent 25%),
-        radial-gradient(circle at 20% 80%,rgba(160,0,255,.10),transparent 30%);
-}
-
-.sidebar {
-    position:fixed;
-    left:0;
-    top:0;
-    bottom:0;
-    width:255px;
-    padding:22px 14px;
-    background:rgba(12,13,22,.82);
-    backdrop-filter:blur(20px);
-    border-right:1px solid rgba(255,255,255,.08);
-    overflow-y:auto;
-    z-index:5;
-}
-
-.logo {
-    padding:10px 12px 22px;
-    font-size:23px;
-    font-weight:800;
-    letter-spacing:.5px;
-}
-
-.logo span {
-    color:#b55cff;
-}
-
-.status {
-    padding:10px 12px;
-    margin-bottom:15px;
-    border-radius:12px;
-    background:rgba(0,255,170,.07);
-    border:1px solid rgba(0,255,170,.15);
-    color:#62ffc6;
-    font-size:12px;
-}
-
-.table-link {
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    padding:11px 12px;
-    margin:4px 0;
-    border-radius:11px;
-    color:#aeb3c5;
-    text-decoration:none;
-    font-size:13px;
-    transition:.2s;
-}
-
-.table-link:hover,
-.table-link.active {
-    color:white;
-    background:linear-gradient(
-        90deg,
-        rgba(157,78,255,.25),
-        rgba(0,210,255,.10)
-    );
-}
-
-.badge {
-    font-size:10px;
-    padding:3px 7px;
-    border-radius:20px;
-    background:rgba(255,255,255,.07);
-    color:#8e94a8;
-}
-
-.main {
-    margin-left:255px;
-    padding:25px;
-}
-
-.topbar {
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:15px;
-    margin-bottom:25px;
-}
-
-.title h1 {
-    margin:0;
-    font-size:26px;
-}
-
-.title p {
-    margin:5px 0 0;
-    color:#858ba0;
-    font-size:13px;
-}
-
-.cards {
-    display:grid;
-    grid-template-columns:repeat(3,1fr);
-    gap:15px;
-    margin-bottom:20px;
-}
-
-.card {
-    padding:20px;
-    border-radius:18px;
-    background:rgba(255,255,255,.055);
-    border:1px solid rgba(255,255,255,.08);
-    backdrop-filter:blur(16px);
-}
-
-.card small {
-    color:#858ba0;
-}
-
-.card strong {
-    display:block;
-    margin-top:8px;
-    font-size:25px;
-}
-
-.online {
-    color:#55ffc2;
-}
-
-.panel {
-    border:1px solid rgba(255,255,255,.08);
-    background:rgba(15,16,27,.72);
-    border-radius:18px;
-    overflow:hidden;
-    box-shadow:0 20px 60px rgba(0,0,0,.25);
-}
-
-.panel-head {
-    padding:17px;
-    display:flex;
-    justify-content:space-between;
-    gap:10px;
-    flex-wrap:wrap;
-    border-bottom:1px solid rgba(255,255,255,.07);
-}
-
-.search {
-    display:flex;
-    gap:8px;
-}
-
-input,
-button {
-    font:inherit;
-}
-
-input {
-    color:white;
-    background:#11131d;
-    border:1px solid #282b3a;
-    border-radius:10px;
-    padding:10px 12px;
-    outline:none;
-}
-
-input:focus {
-    border-color:#9b5cff;
-}
-
-button,
-.btn {
-    border:0;
-    border-radius:10px;
-    padding:10px 14px;
-    cursor:pointer;
-    color:white;
-    background:linear-gradient(135deg,#8e42ff,#4e8cff);
-    text-decoration:none;
-}
-
-.btn-danger {
-    background:linear-gradient(135deg,#ff3d68,#b51f45);
-}
-
-.btn-edit {
-    background:linear-gradient(135deg,#00a8ff,#006eff);
-}
-
-.table-wrap {
-    width:100%;
-    overflow:auto;
-}
-
-table {
-    width:100%;
-    border-collapse:collapse;
-    min-width:750px;
-}
-
-th,
-td {
-    padding:12px 14px;
-    text-align:left;
-    border-bottom:1px solid rgba(255,255,255,.06);
-    font-size:12px;
-    white-space:nowrap;
-}
-
-th {
-    color:#aeb5cc;
-    background:rgba(255,255,255,.025);
-}
-
-td {
-    color:#dce0ed;
-}
-
-.actions {
-    display:flex;
-    gap:6px;
-}
-
-.empty {
-    padding:50px;
-    text-align:center;
-    color:#777d91;
-}
-
-.toast {
-    position:fixed;
-    right:20px;
-    top:20px;
-    padding:13px 17px;
-    border-radius:12px;
-    background:#151823;
-    border:1px solid rgba(255,255,255,.1);
-    box-shadow:0 15px 40px rgba(0,0,0,.4);
-    z-index:99;
-}
-
-.modal {
-    display:none;
-    position:fixed;
-    inset:0;
-    background:rgba(0,0,0,.7);
-    backdrop-filter:blur(8px);
-    z-index:50;
-    padding:20px;
-    overflow:auto;
-}
-
-.modal-box {
-    max-width:650px;
-    margin:40px auto;
-    padding:22px;
-    border-radius:18px;
-    background:#10121c;
-    border:1px solid rgba(255,255,255,.1);
-}
-
-.modal-box h2 {
-    margin-top:0;
-}
-
-.form-grid {
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:12px;
-}
-
-.form-group label {
-    display:block;
-    color:#999fb1;
-    font-size:11px;
-    margin-bottom:6px;
-}
-
-.form-group input {
-    width:100%;
-}
-
-.form-actions {
-    display:flex;
-    justify-content:flex-end;
-    gap:8px;
-    margin-top:18px;
-}
-
-.mobile-menu {
-    display:none;
-}
-
-@media(max-width:800px) {
-    .sidebar {
-        transform:translateX(-100%);
-        transition:.25s;
-    }
-
-    .sidebar.open {
-        transform:translateX(0);
-    }
-
-    .main {
-        margin-left:0;
-        padding:15px;
-    }
-
-    .mobile-menu {
-        display:block;
-    }
-
-    .cards {
-        grid-template-columns:1fr;
-    }
-
-    .topbar {
-        align-items:flex-start;
-    }
-
-    .form-grid {
-        grid-template-columns:1fr;
-    }
-
-    .title h1 {
-        font-size:21px;
-    }
-}
-</style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ninja School Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: #0a0814; }
+        ::-webkit-scrollbar-thumb { background: #6b21a8; border-radius: 4px; }
+    </style>
 </head>
+<body class="bg-[#0a0814] text-slate-200 h-screen overflow-hidden flex">
 
-<body>
+    <div id="overlay" class="fixed inset-0 bg-black/70 z-40 hidden md:hidden" onclick="toggleMenu()"></div>
 
-<aside class="sidebar" id="sidebar">
-
-    <div class="logo">
-        ⚡ <span>NSO</span> VIP
-    </div>
-
-    <div class="status">
-        ● MariaDB Connected
-    </div>
-
-    <?php foreach ($tables as $t): ?>
-        <?php
-            $safe = str_replace('`','``',$t);
-            $cnt = 0;
-            $cr = $db->query("SELECT COUNT(*) c FROM `$safe`");
-            if ($cr) $cnt = (int)$cr->fetch_assoc()['c'];
-        ?>
-        <a class="table-link <?= $t === $table ? 'active' : '' ?>"
-           href="?table=<?= urlencode($t) ?>">
-            <span><?= e($t) ?></span>
-            <span class="badge"><?= $cnt ?></span>
-        </a>
-    <?php endforeach; ?>
-
-</aside>
-
-<main class="main">
-
-    <div class="topbar">
-        <div class="title">
-            <button class="mobile-menu" onclick="toggleMenu()">☰</button>
-            <h1>🎮 NSO VIP PANEL</h1>
-            <p>Quản lý máy chủ Ninja School</p>
-        </div>
-
-        <button onclick="openModal('addModal')">
-            ＋ Thêm dữ liệu
-        </button>
-    </div>
-
-    <section class="cards">
-
-        <div class="card">
-            <small>🗂️ Tổng bảng</small>
-            <strong><?= count($tables) ?></strong>
-        </div>
-
-        <div class="card">
-            <small>📊 Tổng dòng</small>
-            <strong><?= number_format($totalDatabaseRows) ?></strong>
-        </div>
-
-        <div class="card">
-            <small>🟢 Trạng thái</small>
-            <strong class="online">ONLINE</strong>
-        </div>
-
-    </section>
-
-    <section class="panel">
-
-        <div class="panel-head">
-
-            <div>
-                <b>📁 <?= e($table ?: 'Chưa chọn bảng') ?></b>
-                <span style="color:#777;margin-left:8px">
-                    <?= number_format($totalRows) ?> dòng
-                </span>
+    <aside id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-[#140f26] border-r border-purple-500/20 z-50 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 flex flex-col">
+        <div class="p-4 flex items-center justify-between border-b border-purple-500/20">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-user-ninja text-purple-500 text-xl"></i>
+                <div>
+                    <h1 class="font-bold text-white text-sm">NINJA SCHOOL</h1>
+                    <p class="text-[10px] text-cyan-400">Database Panel</p>
+                </div>
             </div>
-
-            <form class="search" method="get">
-                <input type="hidden"
-                       name="table"
-                       value="<?= e($table) ?>">
-
-                <input name="search"
-                       value="<?= e($search) ?>"
-                       placeholder="🔍 Tìm kiếm...">
-
-                <button>Search</button>
-            </form>
-
+            <button class="md:hidden text-slate-400 p-2" onclick="toggleMenu()"><i class="fa-solid fa-xmark text-lg"></i></button>
         </div>
+        
+        <div class="flex-1 overflow-y-auto p-3 space-y-1">
+            <a href="?db=<?=h($dbname)?>" class="block px-3 py-2 rounded-lg text-xs font-semibold <?=!$table?'bg-purple-600 text-white':'text-slate-400 hover:bg-[#1a1438]'?>">
+                <i class="fa-solid fa-chart-pie w-5"></i> Tổng Quan
+            </a>
+            <div class="pt-3 pb-1 text-[10px] uppercase font-bold text-slate-500">Quản lý Bảng</div>
+            <?php 
+            $menu = ['player'=>'Tài khoản', 'ninja'=>'Nhân vật', 'item'=>'Hành trang', 'itemsell'=>'Shop', 'gift_code'=>'Giftcode', 'clan'=>'Gia tộc'];
+            foreach($menu as $t => $name): if(in_array($t, $tables, true)): 
+            ?>
+                <a href="?db=<?=h($dbname)?>&table=<?=h($t)?>" class="block px-3 py-2 rounded-lg text-xs font-semibold <?=$table===$t?'bg-purple-600/30 text-cyan-300 border border-purple-500/30':'text-slate-400 hover:bg-[#1a1438]'?>">
+                    <i class="fa-solid fa-table w-5 text-purple-400"></i> <?=h($name)?>
+                </a>
+            <?php endif; endforeach; ?>
+            
+            <div class="pt-3 pb-1 text-[10px] uppercase font-bold text-slate-500">Tất cả Bảng (Raw)</div>
+            <?php foreach($tables as $t): ?>
+                <a href="?db=<?=h($dbname)?>&table=<?=h($t)?>" class="block px-3 py-1.5 rounded-lg text-xs <?=$table===$t?'text-cyan-300 font-bold':'text-slate-500 hover:text-slate-300'?>">
+                    <i class="fa-solid fa-database w-5 text-[10px]"></i> <?=h($t)?>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </aside>
 
-        <?php if ($rows && $columns): ?>
+    <div class="flex-1 flex flex-col min-w-0 bg-[#0a0814]">
+        
+        <header class="bg-[#140f26] border-b border-purple-500/20 px-3 py-2 flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-3">
+                <button class="md:hidden bg-purple-600/20 border border-purple-500/30 p-1.5 rounded-lg text-purple-300" onclick="toggleMenu()">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <div class="flex bg-[#0a0814] rounded-lg border border-purple-500/20 overflow-hidden text-xs">
+                    <?php foreach($DBS as $d): ?>
+                        <a href="?db=<?=h($d)?>" class="px-3 py-1.5 <?=$dbname===$d?'bg-purple-600 text-white font-bold':'text-slate-400'?>"><?=h($d)?></a>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <a href="?logout=1" class="p-2 text-red-400 bg-red-500/10 rounded-lg text-xs"><i class="fa-solid fa-power-off"></i></a>
+        </header>
 
-        <div class="table-wrap">
-
-            <table>
-
-                <thead>
-                    <tr>
-                        <?php foreach ($columns as $c): ?>
-                            <th><?= e($c['Field']) ?></th>
-                        <?php endforeach; ?>
-
-                        <?php if ($primary): ?>
-                            <th>THAO TÁC</th>
-                        <?php endif; ?>
-                    </tr>
-                </thead>
-
-                <tbody>
-
-                <?php foreach ($rows as $row): ?>
-
-                    <tr>
-
-                        <?php foreach ($columns as $c): ?>
-
-                            <?php
-                                $field = $c['Field'];
-                                $value = $row[$field] ?? '';
-                            ?>
-
-                            <td><?= e($value) ?></td>
-
-                        <?php endforeach; ?>
-
-                        <?php if ($primary): ?>
-
-                        <td>
-
-                            <div class="actions">
-
-                                <button class="btn-edit"
-                                    onclick='editRow(<?= json_encode($row, JSON_UNESCAPED_UNICODE) ?>)'>
-                                    ✏️
-                                </button>
-
-                                <form method="post"
-                                      onsubmit="return confirm('Xóa dữ liệu này?')">
-
-                                    <input type="hidden"
-                                           name="action"
-                                           value="delete">
-
-                                    <input type="hidden"
-                                           name="id"
-                                           value="<?= e($row[$primary]) ?>">
-
-                                    <button class="btn-danger">
-                                        🗑️
-                                    </button>
-
-                                </form>
-
-                            </div>
-
-                        </td>
-
+        <main class="flex-1 overflow-y-auto p-3">
+            <?php if(!$table): ?>
+                <h2 class="text-white text-lg font-bold mb-4">Dashboard: <?=h($dbname)?></h2>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    <?php foreach($menu as $t => $name): if(in_array($t, $tables, true)): ?>
+                        <div class="bg-[#140f26] border border-purple-500/20 p-4 rounded-xl text-center">
+                            <h3 class="text-[11px] text-slate-400 font-bold mb-1 uppercase"><?=h($name)?></h3>
+                            <div class="text-2xl font-black text-white"><?=number_format((int)$pdo->query("SELECT COUNT(*) FROM `$t`")->fetchColumn())?></div>
+                        </div>
+                    <?php endif; endforeach; ?>
+                </div>
+            <?php else: ?>
+                
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                    <div>
+                        <h2 class="text-white font-bold text-sm sm:text-base">Bảng: <?=h($table)?></h2>
+                        <p class="text-[10px] text-cyan-400"><?=number_format($total)?> bản ghi</p>
+                    </div>
+                    
+                    <div class="flex items-center gap-2">
+                        <?php if(in_array($table, ['player','ninja','item','itemsell','gift_code','clan'])): ?>
+                            <a href="?db=<?=h($dbname)?>&table=<?=h($table)?>&add=1" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg text-xs font-bold shrink-0 flex items-center gap-1">
+                                <i class="fa-solid fa-plus"></i> Thêm mới
+                            </a>
                         <?php endif; ?>
 
-                    </tr>
+                        <form method="get" class="flex items-center gap-2 flex-1 sm:flex-none sm:w-64">
+                            <input type="hidden" name="db" value="<?=h($dbname)?>">
+                            <input type="hidden" name="table" value="<?=h($table)?>">
+                            <input type="text" name="search" value="<?=h($search)?>" placeholder="Tìm kiếm..." class="flex-1 bg-[#140f26] text-white text-xs px-3 py-2 border border-purple-500/30 rounded-lg outline-none focus:border-cyan-400">
+                            <button type="submit" class="bg-purple-600 px-3 py-2 rounded-lg text-xs font-bold text-white shrink-0">Tìm</button>
+                        </form>
+                    </div>
+                </div>
 
-                <?php endforeach; ?>
+                <div class="bg-[#140f26] border border-purple-500/20 rounded-xl overflow-x-auto w-full">
+                    <table class="w-full text-left text-xs min-w-[800px]">
+                        <thead class="bg-[#0a0814] text-slate-400 text-[10px] uppercase border-b border-purple-500/20">
+                            <tr>
+                                <?php foreach($columns as $c): ?>
+                                    <th class="px-3 py-2 whitespace-nowrap"><?=h($c['Field'])?></th>
+                                <?php endforeach; ?>
+                                <th class="px-3 py-2 text-right sticky right-0 bg-[#0a0814] shadow-[-5px_0_10px_rgba(0,0,0,0.5)]">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-purple-500/10">
+                            <?php foreach($rows as $row): ?>
+                                <tr class="hover:bg-purple-600/10 text-slate-300">
+                                    <?php foreach($columns as $c): $name=$c['Field']; $val=$row[$name]??''; ?>
+                                        <td class="px-3 py-2 whitespace-nowrap max-w-[150px] truncate" title="<?=h($val)?>">
+                                            <?= $name==='id' ? '<b class="text-cyan-400">#'.h($val).'</b>' : h($val) ?>
+                                        </td>
+                                    <?php endforeach; ?>
+                                    <td class="px-3 py-2 text-right sticky right-0 bg-[#140f26] shadow-[-5px_0_10px_rgba(0,0,0,0.2)]">
+                                        <a href="?db=<?=h($dbname)?>&table=<?=h($table)?>&edit=<?=h($row['id'])?>" class="text-purple-400 bg-purple-400/10 px-2 py-1 rounded text-[10px] mr-1">Sửa</a>
+                                        <?php if(in_array($table, ['player','ninja','item','itemsell','gift_code','clan'])): ?>
+                                            <a href="?db=<?=h($dbname)?>&table=<?=h($table)?>&delete=1&id=<?=h($row['id'])?>" onclick="return confirm('Xóa ID #<?=h($row['id'])?>?')" class="text-red-400 bg-red-400/10 px-2 py-1 rounded text-[10px]">Xóa</a>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
 
-                </tbody>
+                <?php $pages = max(1, ceil($total / $limit)); if($pages > 1): ?>
+                    <div class="flex gap-1 overflow-x-auto mt-3 pb-2">
+                        <?php for($i = 1; $i <= $pages; $i++): if($i > 1 && $i < $pages && abs($i - $page) > 2) continue; ?>
+                            <a href="?db=<?=h($dbname)?>&table=<?=h($table)?>&search=<?=urlencode($search)?>&page=<?=$i?>" class="px-3 py-1.5 rounded-lg border text-xs font-bold <?=$i==$page?'bg-purple-600 text-white border-purple-500':'bg-[#140f26] border-purple-500/20 text-slate-400'?>"><?=$i?></a>
+                        <?php endfor; ?>
+                    </div>
+                <?php endif; ?>
 
-            </table>
+            <?php endif; ?>
+        </main>
+    </div>
 
-        </div>
-
-        <?php else: ?>
-
-            <div class="empty">
-                Không có dữ liệu để hiển thị.
+    <?php if ($edit !== null): ?>
+    <div class="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-3">
+        <form method="post" class="bg-[#140f26] border border-purple-500/40 rounded-xl w-full max-w-lg p-4 max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4 shrink-0">
+                <h3 class="text-cyan-400 font-bold text-sm">
+                    <?= $isAdd ? 'Thêm bản ghi mới vào ' . h($table) : 'Sửa ID: #' . h($edit['id']) ?>
+                </h3>
+                <a href="?db=<?=h($dbname)?>&table=<?=h($table)?>" class="text-slate-400 hover:text-white px-2">✕</a>
             </div>
-
-        <?php endif; ?>
-
-    </section>
-
-</main>
-
-
-<!-- ADD MODAL -->
-<div class="modal" id="addModal">
-
-    <div class="modal-box">
-
-        <h2>➕ Thêm dữ liệu</h2>
-
-        <form method="post">
-
-            <input type="hidden"
-                   name="action"
-                   value="add">
-
-            <input type="hidden"
-                   name="table"
-                   value="<?= e($table) ?>">
-
-            <div class="form-grid">
-
-            <?php foreach ($columns as $c): ?>
-
-                <?php
-                    if ($c['Extra'] === 'auto_increment') continue;
+            
+            <input type="hidden" name="save_table" value="<?=h($table)?>">
+            <?php if(!$isAdd): ?>
+                <input type="hidden" name="id" value="<?=h($edit['id'])?>">
+            <?php endif; ?>
+            
+            <div class="flex-1 overflow-y-auto space-y-3 pr-2">
+                <?php foreach($columns as $c): 
+                    $name=$c['Field']; 
+                    if($name==='id') continue; 
                 ?>
-
-                <div class="form-group">
-
-                    <label><?= e($c['Field']) ?></label>
-
-                    <input name="<?= e($c['Field']) ?>"
-                           placeholder="<?= e($c['Field']) ?>">
-
-                </div>
-
-            <?php endforeach; ?>
-
+                    <div>
+                        <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1"><?=h($name)?></label>
+                        <input type="text" name="<?=h($name)?>" value="<?=h($edit[$name]??'')?>" class="w-full bg-[#0a0814] text-white text-xs border border-purple-500/30 p-2 rounded-lg outline-none focus:border-cyan-400">
+                    </div>
+                <?php endforeach; ?>
             </div>
-
-            <div class="form-actions">
-
-                <button type="button"
-                        onclick="closeModal('addModal')">
-                    Hủy
+            
+            <div class="pt-4 border-t border-purple-500/20 flex justify-end gap-2 shrink-0">
+                <a href="?db=<?=h($dbname)?>&table=<?=h($table)?>" class="px-4 py-2 bg-[#0a0814] border border-purple-500/20 text-slate-300 rounded-lg text-xs font-bold">Hủy</a>
+                <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded-lg text-xs font-bold">
+                    <?= $isAdd ? 'Thêm mới' : 'Lưu' ?>
                 </button>
-
-                <button type="submit">
-                    💾 Lưu
-                </button>
-
             </div>
-
         </form>
-
     </div>
+    <?php endif; ?>
 
-</div>
-
-
-<!-- EDIT MODAL -->
-<div class="modal" id="editModal">
-
-    <div class="modal-box">
-
-        <h2>✏️ Chỉnh sửa</h2>
-
-        <form method="post">
-
-            <input type="hidden"
-                   name="action"
-                   value="update">
-
-            <input type="hidden"
-                   name="_primary_value"
-                   id="_primary_value">
-
-            <div class="form-grid">
-
-            <?php foreach ($columns as $c): ?>
-
-                <div class="form-group">
-
-                    <label><?= e($c['Field']) ?></label>
-
-                    <input name="<?= e($c['Field']) ?>"
-                           id="edit_<?= e($c['Field']) ?>">
-
-                </div>
-
-            <?php endforeach; ?>
-
-            </div>
-
-            <div class="form-actions">
-
-                <button type="button"
-                        onclick="closeModal('editModal')">
-                    Hủy
-                </button>
-
-                <button type="submit">
-                    💾 Cập nhật
-                </button>
-
-            </div>
-
-        </form>
-
-    </div>
-
-</div>
-
-
-<?php if ($ok): ?>
-<div class="toast" id="toast">
-    <?php
-        echo match($ok) {
-            'added'   => '✅ Thêm dữ liệu thành công',
-            'updated' => '✅ Cập nhật thành công',
-            'deleted' => '🗑️ Xóa dữ liệu thành công',
-            default   => '✅ Thành công'
-        };
-    ?>
-</div>
-<?php endif; ?>
-
-
-<script>
-function openModal(id) {
-    document.getElementById(id).style.display = 'block';
-}
-
-function closeModal(id) {
-    document.getElementById(id).style.display = 'none';
-}
-
-function toggleMenu() {
-    document.getElementById('sidebar').classList.toggle('open');
-}
-
-function editRow(row) {
-
-    <?php foreach ($columns as $c): ?>
-
-    document.getElementById(
-        'edit_<?= e($c['Field']) ?>'
-    ).value = row['<?= e($c['Field']) ?>'] ?? '';
-
-    <?php endforeach; ?>
-
-    document.getElementById('_primary_value').value =
-        row['<?= e($primary) ?>'] ?? '';
-
-    openModal('editModal');
-}
-
-setTimeout(function() {
-    const t = document.getElementById('toast');
-    if (t) t.remove();
-}, 3000);
-</script>
-
+    <script>
+        function toggleMenu() {
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            document.getElementById('overlay').classList.toggle('hidden');
+        }
+    </script>
 </body>
 </html>
