@@ -6,7 +6,7 @@ $DB_HOST = '127.0.0.1';
 $DB_USER = 'root';
 $DB_PASS = '';
 
-$DBS = ['acc', 'aov'];
+$DBS = ['aov', 'acc'];
 $ADMIN_USER = 'admin';
 $ADMIN_PASS = 'admin123';
 
@@ -81,7 +81,7 @@ exit;
 
 /* ================= DATABASE ================= */
 
-$dbname = $_GET['db'] ?? 'acc';
+$dbname = $_GET['db'] ?? 'aov';
 
 if (!in_array($dbname, $DBS, true)) {
     $dbname = 'acc';
@@ -224,62 +224,79 @@ if (
 
         if ($id === '' && $table === 'player') {
 
-            /* Ngày tham gia luôn lấy thời gian hiện tại */
-            if (isset($fields['created_at'])) {
-                $fields['created_at'] =
-                    date('Y-m-d H:i:s');
+            /*
+             * Server Ninja School đăng nhập bằng aov.player
+             */
+
+            if ($dbname !== 'aov') {
+                die('Tài khoản Ninja phải được tạo trong database aov!');
             }
 
-            /* VIP mặc định */
-            if (isset($fields['vip']) &&
-                $fields['vip'] === '') {
+            $allowedPlayer = [
+                'username',
+                'password',
+                'lock',
+                'ban',
+                'luong',
+                'ninja',
+                'coin',
+                'tongnap',
+                'status',
+                'role',
+                'online',
+                'phone',
+                'vip',
+                'admin_web',
+                'ngaythamgia'
+            ];
 
-                $fields['vip'] = -1;
+            $fields = array_intersect_key(
+                $fields,
+                array_flip($allowedPlayer)
+            );
+
+            $username = trim($fields['username'] ?? '');
+            $password = trim($fields['password'] ?? '');
+
+            if ($username === '') {
+                die('Vui lòng nhập tên tài khoản!');
             }
 
-            /* Nhân vật mặc định */
-            if (isset($fields['ninja']) &&
-                $fields['ninja'] === '') {
-
-                $fields['ninja'] = '[]';
+            if ($password === '') {
+                die('Vui lòng nhập mật khẩu!');
             }
 
-            /* Kiểm tra username */
-            if (
-                isset($fields['username']) &&
-                trim($fields['username']) !== ''
-            ) {
-
-                $check = $pdo->prepare(
-                    "SELECT id FROM player WHERE username=? LIMIT 1"
-                );
-
-                $check->execute([
-                    trim($fields['username'])
-                ]);
-
-                if ($check->fetch()) {
-
-                    die("
-                    <div style='
-                        background:#0a0814;
-                        color:#fff;
-                        padding:40px;
-                        font-family:Arial;
-                        text-align:center;
-                    '>
-                        <h2 style='color:#f87171'>
-                            Username đã tồn tại!
-                        </h2>
-
-                        <a href='javascript:history.back()'
-                           style='color:#22d3ee'>
-                            ← Quay lại
-                        </a>
-                    </div>
-                    ");
-                }
+            if (strlen($username) > 15) {
+                die('Tên tài khoản tối đa 15 ký tự!');
             }
+
+            $check = $pdo->prepare(
+                "SELECT id FROM player WHERE username=? LIMIT 1"
+            );
+
+            $check->execute([$username]);
+
+            if ($check->fetch()) {
+                die('Username đã tồn tại!');
+            }
+
+            /*
+             * Default đúng schema aov.player
+             */
+            $fields['username'] = $username;
+            $fields['password'] = $password;
+            $fields['lock'] = 0;
+            $fields['ban'] = 0;
+            $fields['luong'] = 0;
+            $fields['ninja'] = '[]';
+            $fields['coin'] = 0;
+            $fields['tongnap'] = 0;
+            $fields['status'] = 0;
+            $fields['role'] = 0;
+            $fields['online'] = 0;
+            $fields['vip'] = -1;
+            $fields['admin_web'] = 0;
+            $fields['ngaythamgia'] = date('Y-m-d H:i:s');
         }
 
         /* ================= UPDATE ================= */
@@ -316,39 +333,6 @@ if (
              * Tạo tài khoản player:
              * Chỉ dùng các cột thực tế có trong bảng player.
              */
-            if ($table === 'player') {
-
-                $fields['lock'] = 0;
-                $fields['ban'] = 0;
-                $fields['luong'] = 0;
-                $fields['ninja'] = '[]';
-                $fields['coin'] = 0;
-                $fields['status'] = 0;
-                $fields['role'] = 0;
-                $fields['online'] = 0;
-                $fields['vip'] = -1;
-                $fields['XacThuc'] = 1;
-                $fields['created_at'] = date('Y-m-d H:i:s');
-
-                unset(
-                    $fields['tongnap'],
-                    $fields['admin_web']
-                );
-
-                if (isset($fields['username'])) {
-                    $fields['username'] = trim($fields['username']);
-
-                    $check = $pdo->prepare(
-                        "SELECT id FROM player WHERE username=? LIMIT 1"
-                    );
-                    $check->execute([$fields['username']]);
-
-                    if ($check->fetch()) {
-                        die('Tên tài khoản đã tồn tại!');
-                    }
-                }
-            }
-
             if ($fields) {
 
                 $names = array_keys($fields);
