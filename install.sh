@@ -87,7 +87,7 @@ echo "[4] Khởi động NsoC..."
 cd "$NsoC"
 
 exec java -cp "dist/Monter.jar:lib/*" server.NinjaSchool
-RUNN
+RUN
 
 chmod +x "$BASE/start-ninja.sh"
 
