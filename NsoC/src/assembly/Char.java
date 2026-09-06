@@ -1006,12 +1006,16 @@ public class Char extends Body {
                             nja.exp = Level.getMaxExp(130);
                             nja.level = 130;
 
-                            short[] vipItems = {712, 713, 746, 747, 748, 749, 750, 751, 752};
+                            short[] vipItems = {
+                                895, 883, 897, 908, 901,
+                                907, 899, 906, 903, 905
+                            };
 
                             for (short itemId : vipItems) {
                                 Item item = ItemTemplate.itemDefault(itemId);
                                 if (item != null) {
                                     item.isLock = true;
+                                    item.upgrade = 16;
                                     nja.addItemBag(true, item);
                                 }
                             }
