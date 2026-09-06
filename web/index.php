@@ -84,7 +84,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_table'])) {
         foreach ($cols as $col) {
             $name = $col['Field'];
             if ($name !== 'id' && array_key_exists($name, $_POST)) {
-                $fields[$name] = $_POST[$name] !== '' ? $_POST[$name] : null;
+                $value = $_POST[$name];
+
+                // Các cột NOT NULL có giá trị mặc định
+                if ($value === '') {
+                    $notNullDefaults = [
+                        'lock' => 0,
+                        'ban' => 0,
+                        'luong' => 0,
+                        'coin' => 0,
+                        'status' => 0,
+                        'role' => 0,
+                        'online' => 0,
+                        'vip' => -1,
+                        'admin_web' => 0,
+            'ninja' => '[]',
+                        'XacThuc' => 1
+                    ];
+
+                    $fields[$name] = array_key_exists($name, $notNullDefaults)
+                        ? $notNullDefaults[$name]
+                        : null;
+                } else {
+                    $fields[$name] = $value;
+                }
             }
         }
         if ($id !== '') {
