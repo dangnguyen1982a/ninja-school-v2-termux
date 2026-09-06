@@ -1006,10 +1006,17 @@ public class Char extends Body {
                             nja.exp = Level.getMaxExp(130);
                             nja.level = 130;
 
-                            short[] vipItems = {
-                                895, 883, 897, 908, 901,
-                                907, 899, 906, 903, 905
-                            };
+                            short[] vipItems;
+
+                            if (nja.gender == 0) {
+                                vipItems = new short[]{
+                                    712, 713, 746, 747, 748, 749, 750, 751, 752
+                                };
+                            } else {
+                                vipItems = new short[]{
+                                    715, 716, 753, 754, 755, 756, 757, 758, 759
+                                };
+                            }
 
                             for (short itemId : vipItems) {
                                 Item item = ItemTemplate.itemDefault(itemId);
