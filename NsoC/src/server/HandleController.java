@@ -3542,33 +3542,8 @@ public class HandleController {
 
                                 org.json.simple.JSONArray body = new org.json.simple.JSONArray();
 
-                                int[] gear = new int[32];
-
-                                // Full Thiên Vương nam - class 3
-                                gear[0]  = 895;
-                                gear[1]  = 883;
-                                gear[3]  = 897;
-                                gear[4]  = 908;
-                                gear[5]  = 901;
-                                gear[6]  = 907;
-                                gear[7]  = 899;
-                                gear[8]  = 906;
-                                gear[9]  = 903;
-                                gear[11] = 905;
-
                                 for (int slot = 0; slot < 32; slot++) {
-                                    assembly.Item item;
-
-                                    if (gear[slot] > 0) {
-                                        item = template.ItemTemplate.itemDefault(gear[slot], (byte) 1);
-                                        item.isLock = true;
-                                        item.upgrade = 16;
-                                        item.quantity = 1;
-                                    } else {
-                                        item = new assembly.Item();
-                                    }
-
-                                    body.add(template.ItemTemplate.ObjectItem(item, slot));
+                                    body.add(template.ItemTemplate.ObjectItem(new assembly.Item(), slot));
                                 }
 
                                 String itemBody = body.toJSONString().replace("'", "''");
@@ -3580,7 +3555,6 @@ public class HandleController {
                                     "`friend`,`effect`,`clan`,`exptype`,`skill`" +
                                     ") VALUES (" +
                                     "\"" + name + "\"," +
-                                    gender + "," +
                                     head + "," +
                                     "'[]','[]','[]','[]'," +
                                     "'" + itemBody + "'," +
