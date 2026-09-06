@@ -1,0 +1,52 @@
+[Mon Sep  7 02:05:22 2026] PHP 8.5.1 Development Server (http://127.0.0.1:8080) started
+[Mon Sep  7 02:05:36 2026] 127.0.0.1:44914 Accepted
+[Mon Sep  7 02:05:36 2026] 127.0.0.1:44914 [200]: GET /
+[Mon Sep  7 02:05:36 2026] 127.0.0.1:44914 Closing
+[Mon Sep  7 02:05:36 2026] 127.0.0.1:44922 Accepted
+[Mon Sep  7 02:05:36 2026] 127.0.0.1:44932 Accepted
+[Mon Sep  7 02:05:37 2026] 127.0.0.1:44922 [200]: GET /favicon.ico
+[Mon Sep  7 02:05:37 2026] 127.0.0.1:44922 Closing
+[Mon Sep  7 02:05:38 2026] 127.0.0.1:44932 [200]: GET /?db=aov&table=player
+[Mon Sep  7 02:05:38 2026] 127.0.0.1:44932 Closing
+[Mon Sep  7 02:05:38 2026] 127.0.0.1:44940 Accepted
+[Mon Sep  7 02:05:39 2026] 127.0.0.1:44940 [200]: GET /favicon.ico
+[Mon Sep  7 02:05:39 2026] 127.0.0.1:44940 Closing
+[Mon Sep  7 02:05:41 2026] 127.0.0.1:49268 Accepted
+[Mon Sep  7 02:05:41 2026] 127.0.0.1:49268 [302]: GET /?db=aov&table=player&delete=1&id=507
+[Mon Sep  7 02:05:41 2026] 127.0.0.1:49268 Closing
+[Mon Sep  7 02:05:41 2026] 127.0.0.1:49284 Accepted
+[Mon Sep  7 02:05:41 2026] 127.0.0.1:49284 [200]: GET /?db=aov&table=player
+[Mon Sep  7 02:05:41 2026] 127.0.0.1:49284 Closing
+[Mon Sep  7 02:05:42 2026] 127.0.0.1:49300 Accepted
+[Mon Sep  7 02:05:42 2026] 127.0.0.1:49300 [200]: GET /favicon.ico
+[Mon Sep  7 02:05:42 2026] 127.0.0.1:49300 Closing
+[Mon Sep  7 02:05:42 2026] 127.0.0.1:49312 Accepted
+[Mon Sep  7 02:05:42 2026] 127.0.0.1:49312 [200]: GET /?db=aov&table=player&add=1
+[Mon Sep  7 02:05:42 2026] 127.0.0.1:49312 Closing
+[Mon Sep  7 02:05:42 2026] 127.0.0.1:49322 Accepted
+[Mon Sep  7 02:05:42 2026] 127.0.0.1:49322 [200]: GET /favicon.ico
+[Mon Sep  7 02:05:42 2026] 127.0.0.1:49322 Closing
+[Mon Sep  7 02:05:55 2026] 127.0.0.1:45158 Accepted
+[Mon Sep  7 02:05:55 2026] 127.0.0.1:45158 [302]: POST /?db=aov&table=player&add=1
+[Mon Sep  7 02:05:55 2026] 127.0.0.1:45158 Closing
+[Mon Sep  7 02:05:55 2026] 127.0.0.1:45166 Accepted
+[Mon Sep  7 02:05:55 2026] 127.0.0.1:45166 [200]: GET /?db=aov&table=player
+[Mon Sep  7 02:05:55 2026] 127.0.0.1:45166 Closing
+[Mon Sep  7 02:05:55 2026] 127.0.0.1:45174 Accepted
+[Mon Sep  7 02:05:55 2026] 127.0.0.1:45174 [200]: GET /favicon.ico
+[Mon Sep  7 02:05:55 2026] 127.0.0.1:45174 Closing
+[Mon Sep  7 02:06:04 2026] 127.0.0.1:47762 Accepted
+[Mon Sep  7 02:06:04 2026] 127.0.0.1:47762 [200]: GET /?db=aov&table=player&edit=508
+[Mon Sep  7 02:06:04 2026] 127.0.0.1:47762 Closing
+[Mon Sep  7 02:06:04 2026] 127.0.0.1:47774 Accepted
+[Mon Sep  7 02:06:04 2026] 127.0.0.1:47774 [200]: GET /favicon.ico
+[Mon Sep  7 02:06:04 2026] 127.0.0.1:47774 Closing
+[Mon Sep  7 02:06:09 2026] 127.0.0.1:41842 Accepted
+[Mon Sep  7 02:06:09 2026] 127.0.0.1:41842 [302]: POST /?db=aov&table=player&edit=508
+[Mon Sep  7 02:06:09 2026] 127.0.0.1:41842 Closing
+[Mon Sep  7 02:06:09 2026] 127.0.0.1:41846 Accepted
+[Mon Sep  7 02:06:09 2026] 127.0.0.1:41846 [200]: GET /?db=aov&table=player
+[Mon Sep  7 02:06:09 2026] 127.0.0.1:41846 Closing
+[Mon Sep  7 02:06:09 2026] 127.0.0.1:41850 Accepted
+[Mon Sep  7 02:06:09 2026] 127.0.0.1:41850 [200]: GET /favicon.ico
+[Mon Sep  7 02:06:09 2026] 127.0.0.1:41850 Closing

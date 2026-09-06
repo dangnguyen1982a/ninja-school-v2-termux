@@ -1,0 +1,12 @@
+----------Thời Gian : 2026-09-06 19:06:49--------
+- Name : admincom
+- Tên Giao Dịch :  Nhận Qùa Tân Thủ
+- Lượng Cũ : 0
+- Lượng Mới : 250000
+- Lượng Thay Đổi :50000 Lượng 
+----------Thời Gian : 2026-09-06 19:06:52--------
+- Name : admincom
+- Tên Giao Dịch :  Điểm Danh Hằng Ngày
+- Lượng Cũ : 500000
+- Lượng Mới : 501000
+- Lượng Thay Đổi :1000 Lượng 

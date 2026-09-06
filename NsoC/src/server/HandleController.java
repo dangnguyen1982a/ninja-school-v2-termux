@@ -3542,10 +3542,6 @@ public class HandleController {
 
                                 org.json.simple.JSONArray body = new org.json.simple.JSONArray();
 
-                                for (int slot = 0; slot < 32; slot++) {
-                                    body.add(template.ItemTemplate.ObjectItem(new assembly.Item(), slot));
-                                }
-
                                 String itemBody = body.toJSONString().replace("'", "''");
 
                                 String sql =
@@ -3555,6 +3551,7 @@ public class HandleController {
                                     "`friend`,`effect`,`clan`,`exptype`,`skill`" +
                                     ") VALUES (" +
                                     "\"" + name + "\"," +
+                                    gender + "," +
                                     head + "," +
                                     "'[]','[]','[]','[]'," +
                                     "'" + itemBody + "'," +

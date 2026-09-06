@@ -119,7 +119,9 @@ public class Player extends User {
                             p.vip = vip;
                             for (byte i = 0; i < jarr.size(); ++i) {
                                 p.sortNinja[i] = jarr.get(i).toString();
+                                System.out.println("DEBUG sortNinja[" + i + "] = " + p.sortNinja[i]);
                             }
+                            System.out.println("DEBUG username=" + p.username + " ninja_count=" + jarr.size());
                             SQLManager.stat.executeUpdate("UPDATE `player` SET `online`=1 WHERE `id`=" + p.id + " ;");
                             Client.gI().put(p);
                             jarr.clear();

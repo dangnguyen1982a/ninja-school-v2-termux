@@ -128,19 +128,51 @@ public class Body {
     }
 
     public short partHead() {
-        if (this.caiTrang != -1) {
-            return ItemTemplate.ItemTemplateId(this.c.ItemCaiTrang[this.caiTrang].id).part;
+        // Không có cải trang hợp lệ -> dùng đầu mặc định của nhân vật
+        if (this.c != null
+                && this.caiTrang != -1
+                && this.c.ItemCaiTrang != null
+                && this.caiTrang < this.c.ItemCaiTrang.length
+                && this.c.ItemCaiTrang[this.caiTrang] != null) {
+
+            ItemTemplate t = ItemTemplate.ItemTemplateId(
+                    this.c.ItemCaiTrang[this.caiTrang].id
+            );
+
+            if (t != null) {
+                return t.part;
+            }
         }
-        if (this.ItemBody[11] == null) {
-            return this.c.head;
+
+        // ItemBody[11] chỉ được dùng nếu item thật sự tồn tại
+        if (this.ItemBody != null
+                && this.ItemBody.length > 11
+                && this.ItemBody[11] != null
+                && this.ItemBody[11].id >= 0) {
+
+            ItemTemplate t = ItemTemplate.ItemTemplateId(this.ItemBody[11].id);
+
+            if (t != null) {
+                return t.part;
+            }
         }
-        return ItemTemplate.ItemTemplateId(this.ItemBody[11].id).part;
+
+        return this.c != null ? this.c.head : -1;
     }
 
     public short Weapon() {
-        if (this.ItemBody[1] != null) {
-            return ItemTemplate.ItemTemplateId(this.ItemBody[1].id).part;
+        if (this.ItemBody == null
+                || this.ItemBody.length <= 1
+                || this.ItemBody[1] == null) {
+            return -1;
         }
+
+        ItemTemplate t = ItemTemplate.ItemTemplateId(this.ItemBody[1].id);
+
+        if (t != null) {
+            return t.part;
+        }
+
         return -1;
     }
 
@@ -159,9 +191,18 @@ public class Body {
         if (ItemTemplate.isPartHead(this.partHead())) {
             return (short) (this.partHead() + 2);
         }
-        if (this.ItemBody[6] != null) {
-            return ItemTemplate.ItemTemplateId(this.ItemBody[6].id).part;
+
+        if (this.ItemBody != null
+                && this.ItemBody.length > 6
+                && this.ItemBody[6] != null) {
+
+            ItemTemplate t = ItemTemplate.ItemTemplateId(this.ItemBody[6].id);
+
+            if (t != null) {
+                return t.part;
+            }
         }
+
         return -1;
     }
 

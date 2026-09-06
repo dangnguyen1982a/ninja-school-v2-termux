@@ -1000,26 +1000,6 @@ public class Char extends Body {
 
                         nja.isHuman = true;
                         nja.isNhanban = false;
-
-                        // VIP 1: tự động nhận set + lên cấp 130, chỉ nhận 1 lần
-                        if (p.vip == 1 && nja.nhanquavip == -1) {
-                            nja.exp = Level.getMaxExp(130);
-                            nja.level = 130;
-
-                            short[] vipItems = {712, 713, 746, 747, 748, 749, 750, 751, 752};
-
-                            for (short itemId : vipItems) {
-                                Item item = ItemTemplate.itemDefault(itemId);
-                                if (item != null) {
-                                    item.isLock = true;
-                                    nja.addItemBag(true, item);
-                                }
-                            }
-
-                            nja.nhanquavip = 0;
-                            nja.flush();
-                        }
-
                         red.close();
                         return nja;
                     } else {
