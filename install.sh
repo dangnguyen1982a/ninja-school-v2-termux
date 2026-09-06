@@ -60,9 +60,26 @@ echo "=========================================="
 echo "[1] Kiểm tra MariaDB..."
 
 if ! mariadb -h 127.0.0.1 -P 3306 -u root -e "SELECT 1;" >/dev/null 2>&1; then
-    echo "MariaDB chưa chạy."
-    echo "Hãy chạy: mariadbd-safe &"
-    exit 1
+    echo "MariaDB chưa chạy. Đang khởi động..."
+
+    mariadbd-safe >/dev/null 2>&1 &
+
+    echo "Đang chờ MariaDB..."
+
+    for i in {1..30}; do
+        if mariadb -h 127.0.0.1 -P 3306 -u root -e "SELECT 1;" >/dev/null 2>&1; then
+            echo "MariaDB đã sẵn sàng."
+            break
+        fi
+        sleep 1
+    done
+
+    if ! mariadb -h 127.0.0.1 -P 3306 -u root -e "SELECT 1;" >/dev/null 2>&1; then
+        echo "LỖI: Không thể khởi động MariaDB."
+        exit 1
+    fi
+else
+    echo "MariaDB đang chạy."
 fi
 
 echo "[2] Kiểm tra database..."
