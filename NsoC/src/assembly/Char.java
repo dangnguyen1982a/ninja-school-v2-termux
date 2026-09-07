@@ -1001,7 +1001,7 @@ public class Char extends Body {
                         nja.isHuman = true;
                         nja.isNhanban = false;
 
-                        // VIP 1: copy full trang bị admin3 vào túi, không tự mặc
+                        // VIP 1: copy full item admin3, tự đổi giới tính, thêm vào túi
                         if (p.vip == 1 && nja.nhanquavip == -1) {
                             nja.exp = Level.getMaxExp(130);
                             nja.level = 130;
@@ -1019,22 +1019,65 @@ public class Char extends Body {
                                             (org.json.simple.JSONArray) org.json.simple.JSONValue.parse(itemBody);
 
                                         for (Object obj : arr) {
-                                            if (obj == null) {
-                                                continue;
-                                            }
+                                            if (obj == null) continue;
 
                                             org.json.simple.JSONObject json =
-                                                (org.json.simple.JSONObject) obj;
+                                                (org.json.simple.JSONObject)obj;
 
                                             Object idObj = json.get("id");
+                                            if (idObj == null) continue;
 
-                                            if (idObj == null || Short.parseShort(idObj.toString()) <= 0) {
-                                                continue;
+                                            int oldId = Integer.parseInt(idObj.toString());
+                                            if (oldId <= 0) continue;
+
+                                            ItemTemplate oldTpl =
+                                                ItemTemplate.ItemTemplateId(oldId);
+
+                                            if (oldTpl == null) continue;
+
+                                            int newId = oldId;
+
+                                            if (oldTpl.gender != 2 && oldTpl.gender != nja.gender) {
+                                                for (ItemTemplate t : ItemTemplate.entrys) {
+                                                    if (t.gender == nja.gender
+                                                            && t.type == oldTpl.type
+                                                            && t.nclass == oldTpl.nclass
+                                                            && t.skill == oldTpl.skill
+                                                            && t.part == oldTpl.part) {
+                                                        newId = t.id;
+                                                        break;
+                                                    }
+                                                }
                                             }
 
-                                            Item item = ItemTemplate.parseItem(json.toJSONString());
+                                            Item item = ItemTemplate.itemDefault(
+                                                newId,
+                                                Byte.parseByte(json.get("sys").toString())
+                                            );
 
                                             if (item != null) {
+                                                item.isLock = Boolean.parseBoolean(json.get("isLock").toString());
+                                                item.upgrade = Byte.parseByte(json.get("upgrade").toString());
+                                                item.quantity = Integer.parseInt(json.get("quantity").toString());
+                                                item.saleCoinLock = Integer.parseInt(json.get("sale").toString());
+
+                                                item.options.clear();
+
+                                                org.json.simple.JSONArray opts =
+                                                    (org.json.simple.JSONArray)json.get("option");
+
+                                                if (opts != null) {
+                                                    for (Object opObj : opts) {
+                                                        org.json.simple.JSONObject op =
+                                                            (org.json.simple.JSONObject)opObj;
+
+                                                        item.options.add(new Option(
+                                                            Integer.parseInt(op.get("id").toString()),
+                                                            Integer.parseInt(op.get("param").toString())
+                                                        ));
+                                                    }
+                                                }
+
                                                 nja.addItemBag(true, item);
                                             }
                                         }
