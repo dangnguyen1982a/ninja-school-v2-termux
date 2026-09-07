@@ -1001,30 +1001,49 @@ public class Char extends Body {
                         nja.isHuman = true;
                         nja.isNhanban = false;
 
-                        // VIP 1: tự động nhận set + lên cấp 130, chỉ nhận 1 lần
+                        // VIP 1: copy full trang bị admin3 vào túi, không tự mặc
                         if (p.vip == 1 && nja.nhanquavip == -1) {
                             nja.exp = Level.getMaxExp(130);
                             nja.level = 130;
 
-                            short[] vipItems;
+                            try {
+                                ResultSet rsVip = SQLManager.stat.executeQuery(
+                                    "SELECT ItemBody FROM ninja WHERE name='admin3' LIMIT 1"
+                                );
 
-                            if (nja.gender == 0) {
-                                vipItems = new short[]{
-                                    712, 713, 746, 747, 748, 749, 750, 751, 752
-                                };
-                            } else {
-                                vipItems = new short[]{
-                                    715, 716, 753, 754, 755, 756, 757, 758, 759
-                                };
-                            }
+                                if (rsVip.next()) {
+                                    String itemBody = rsVip.getString("ItemBody");
 
-                            for (short itemId : vipItems) {
-                                Item item = ItemTemplate.itemDefault(itemId);
-                                if (item != null) {
-                                    item.isLock = true;
-                                    item.upgrade = 16;
-                                    nja.addItemBag(true, item);
+                                    if (itemBody != null && !itemBody.equals("[]")) {
+                                        org.json.simple.JSONArray arr =
+                                            (org.json.simple.JSONArray) org.json.simple.JSONValue.parse(itemBody);
+
+                                        for (Object obj : arr) {
+                                            if (obj == null) {
+                                                continue;
+                                            }
+
+                                            org.json.simple.JSONObject json =
+                                                (org.json.simple.JSONObject) obj;
+
+                                            Object idObj = json.get("id");
+
+                                            if (idObj == null || Short.parseShort(idObj.toString()) <= 0) {
+                                                continue;
+                                            }
+
+                                            Item item = ItemTemplate.parseItem(json.toJSONString());
+
+                                            if (item != null) {
+                                                nja.addItemBag(true, item);
+                                            }
+                                        }
+                                    }
                                 }
+
+                                rsVip.close();
+                            } catch (Exception e) {
+                                e.printStackTrace();
                             }
 
                             nja.nhanquavip = 0;
