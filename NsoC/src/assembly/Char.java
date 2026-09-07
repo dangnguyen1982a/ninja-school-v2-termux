@@ -1037,16 +1037,28 @@ public class Char extends Body {
 
                                             int newId = oldId;
 
+                                            // VIP: đổi giới tính nhưng PHẢI giữ đúng tên item admin3
+                                            // Không lấy bất kỳ trang bị khác tên nào.
                                             if (oldTpl.gender != 2 && oldTpl.gender != nja.gender) {
+                                                ItemTemplate bestTpl = null;
+
                                                 for (ItemTemplate t : ItemTemplate.entrys) {
-                                                    if (t.gender == nja.gender
-                                                            && t.type == oldTpl.type
-                                                            && t.nclass == oldTpl.nclass
-                                                            && t.skill == oldTpl.skill
-                                                            && t.part == oldTpl.part) {
-                                                        newId = t.id;
-                                                        break;
+                                                    if (t.name != null
+                                                            && oldTpl.name != null
+                                                            && t.name.equals(oldTpl.name)
+                                                            && t.gender == nja.gender
+                                                            && t.level >= 100
+                                                            && t.level <= 130) {
+
+                                                        // Cùng tên + đúng giới tính -> chọn level cao nhất
+                                                        if (bestTpl == null || t.level > bestTpl.level) {
+                                                            bestTpl = t;
+                                                        }
                                                     }
+                                                }
+
+                                                if (bestTpl != null) {
+                                                    newId = bestTpl.id;
                                                 }
                                             }
 
